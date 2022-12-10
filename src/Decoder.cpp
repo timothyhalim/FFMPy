@@ -3,11 +3,28 @@
 Decoder::Decoder()
 {
     // av_register_all();
-}
+};
+
+Decoder::Decoder(std::string filepath)
+{
+    this->filepath = filepath;
+};
 
 Decoder::~Decoder()
 {
-}
+};
+
+std::string Decoder::set_filepath(std::string filepath)
+{
+    this->filepath = filepath;
+    return this->filepath;
+};
+
+std::string Decoder::get_filepath()
+{
+    return this->filepath;
+};
+
 // int Decoder::open_file(char *file)
 // {
 

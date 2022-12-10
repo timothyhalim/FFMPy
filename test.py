@@ -10,11 +10,22 @@ if os.path.exists(lib):
 import FFMPy
 
 print(dir(FFMPy))
+print("EMPTY DECODER!")
 decoder = FFMPy.Decoder()
 print(decoder)
+
+
+print("FILL DECODER!")
+decoder = FFMPy.Decoder("File")
+print(decoder)
+
+
 print(dir(decoder))
+
+print(decoder.set_filepath("File2"))
 print("Testters")
 
+print(decoder.get_filepath())
 # print(PyExt.example(1, 2))
 # print(PyExt.extract_frame(1))
 

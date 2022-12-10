@@ -31,28 +31,92 @@ static PyMemberDef C_Decoder_DataMembers[] =        // Register the members of t
 * Declare the core methods of the classes.
 *****************************************************************************/
 
-static int C_Decoder_init(C_Decoder* Self, PyObject* args, PyObject* kwargs) {  // Construct
+static int C_Decoder_init(C_Decoder* self, PyObject* args, PyObject* kwargs) {  // Construct
+    PyObject* path = nullptr;
+    static char* kwlist[] = { "filepath", NULL };
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|O", kwlist, &path)) {
+        PyErr_SetString(PyExc_TypeError, "Error.Initialize: need 'filepath(str)'");
+        return -1;
+    }
+
+    std::string _filepath;
+    _filepath.clear();
+    if (path) {
+        _filepath = PyUnicode_AsUTF8(path);
+    }
+
+    self->_c_ref = new Decoder;
+    if (!_filepath.empty()) {
+        self->_c_ref->set_filepath(_filepath);
+    }
+
+    _filepath.clear();
+    //cout << sizeof(self->_in_Handle) << " - " << sizeof(unsigned long long) << endl;
     return 0;
 }
 
-static void C_Decoder_Destruct(C_Decoder* Self) {  // Destructor
-    delete Self->_c_ref;  // Delete the allocated class implementation.
+static void C_Decoder_Destruct(C_Decoder* self) {  // Destructor
+    delete self->_c_ref;  // Delete the allocated class implementation.
     /* If there are still other members, also need to deallocate them,
-     * for example, Py_XDECREF(Self->Member); */
-    Py_TYPE(Self)->tp_free((PyObject*)Self);  // Destruct the PyObject.
+     * for example, Py_XDECREF(self->Member); */
+    Py_TYPE(self)->tp_free((PyObject*)self);  // Destruct the PyObject.
 }
 
-static PyObject* C_Decoder_Str(C_Decoder* Self) {  // The __str__ (print) operator.
-    // std::ostringstream OStr;
-    // OStr << *(Self->_c_ref);
-    // std::string Str = OStr.str();
-    // std::string Str = "Description";
-
-    return PyUnicode_FromString("Description");  // Convert the string to unicode wide char.
+static PyObject* C_Decoder_Str(C_Decoder* self) {  // The __str__ (print) operator.
+    // char *desc = ;
+    return PyUnicode_FromString(self->_c_ref->get_filepath().c_str());  // Convert the string to unicode wide char.
 }
 
-static PyObject* C_Decoder_Repr(C_Decoder* Self) {  // The __repr__ operator.
-    return C_Decoder_Str(Self);
+static PyObject* C_Decoder_Repr(C_Decoder* self) {  // The __repr__ operator.
+    return C_Decoder_Str(self);
+}
+
+
+/*****************************************************************************
+* Additional methods of the classes.
+*****************************************************************************/
+
+PyDoc_STRVAR(Decoder_set_filepath_doc, "set_filepath(obj, number)\
+\
+Set Decoder path function");
+
+PyObject *Decoder_set_filepath(C_Decoder *self, PyObject *args) {
+    /* Shared references that do not need Py_DECREF before returning. */
+
+    char* filepath;
+    /* Parse positional and keyword arguments */
+    if (!PyArg_ParseTuple(args, "s", &filepath)) {
+        return NULL;
+    }
+
+    if (*filepath == *"") {
+        PyErr_SetString(PyExc_ValueError, "Filepath is empty");
+        //PyErr_SetObject(PyExc_ValueError, filepath);
+        return NULL;    /* return NULL indicates error */
+    }
+
+    std::string _filepath = filepath;
+    if (!_filepath.empty()) {
+        PyObject* ret = PyUnicode_FromString(
+            self->_c_ref->set_filepath(_filepath).c_str()
+        );
+
+        _filepath.clear();
+        return ret;
+    }
+
+    Py_RETURN_NONE;
+}
+
+PyDoc_STRVAR(Decoder_get_filepath_doc, "get_filepath(obj, number)\
+\
+Get Decoder path function");
+
+PyObject *Decoder_get_filepath(C_Decoder *self) {
+    PyObject* ret = PyUnicode_FromString(
+        self->_c_ref->get_filepath().c_str()
+    );
+    return ret;
 }
 
 /*****************************************************************************
@@ -61,6 +125,8 @@ static PyObject* C_Decoder_Repr(C_Decoder* Self) {  // The __repr__ operator.
 
 static PyMethodDef C_Decoder_MethodMembers[] =      // Register the member methods of Decoder.
 {  // This step add the methods to the C-API of the class.
+    { "set_filepath", (PyCFunction)Decoder_set_filepath, METH_VARARGS, Decoder_set_filepath_doc },
+    { "get_filepath", (PyCFunction)Decoder_get_filepath, METH_NOARGS, Decoder_get_filepath_doc },
     { nullptr, nullptr, 0, nullptr }
 };
 

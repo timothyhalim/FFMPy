@@ -1,6 +1,7 @@
 #ifndef FFMPy
 #define FFMPy
 
+#include <string>
 #include <Python.h>
 
 extern "C" {

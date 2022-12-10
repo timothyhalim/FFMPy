@@ -3,15 +3,16 @@
 
 class Decoder
 {
-    AVCodecContext        *context;
-    AVFrame               *frame;
-    AVCodec               *codec;
-    AVCodecParserContext  *parser;
-    
-    AVPacket              *pkt;
-public:
-    Decoder();
-    ~Decoder();
+    public:
+        Decoder();
+        Decoder(std::string);
+        ~Decoder();
+
+        std::string set_filepath(std::string filepath);
+        std::string get_filepath();
+
+    private:
+        std::string filepath;
   
     // static int open_file(char *file);
     // static  getQImageFromFrame(const AVFrame* pFrame);
