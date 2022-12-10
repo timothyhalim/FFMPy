@@ -7,14 +7,16 @@ if os.path.exists(lib):
     if not lib in sys.path:
         sys.path.append(lib)
 
-import PyExt
+import FFMPy
 
-print(dir(PyExt))
-
+print(dir(FFMPy))
+decoder = FFMPy.Decoder()
+print(decoder)
+print(dir(decoder))
 print("Testters")
 
-print(PyExt.example(1, 2))
-print(PyExt.extract_frame(1))
+# print(PyExt.example(1, 2))
+# print(PyExt.extract_frame(1))
 
 # print(PyExt.extract())
 # x = PyExt.Decoder("Test")

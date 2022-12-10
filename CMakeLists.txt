@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10.0)
 
-set(PROJECT PyExt)
+set(PROJECT FFMPy)
 
 project(${PROJECT})
 
@@ -16,11 +16,20 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 # Find the Python library
 find_package(PythonLibs REQUIRED)
-include_directories(${PYTHON_INCLUDE_DIRS})
+include_directories(
+    ${PYTHON_INCLUDE_DIRS}
+)
 
+# Find FFMPEG library
+include_directories(ffmpeg_x64/include)
+link_directories(ffmpeg_x64/lib)
 
 set(SRC
-    src/PyExt.cpp
+    src/FFMPy.h
+    src/FFMPy.cpp
+    src/Decoder.h
+    src/Decoder.cpp
+    src/Decoder_python.h
 )
 
 # Tell CMake to create the dll
