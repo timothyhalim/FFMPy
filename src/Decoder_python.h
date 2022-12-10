@@ -147,7 +147,7 @@ static PyMethodDef C_Decoder_MethodMembers[] =      // Register the member metho
 * This is the top-level packing of the class APIs.
 *****************************************************************************/
 
-static PyTypeObject C_MPDC_ClassInfo =
+static PyTypeObject C_Decoder_ClassInfo =
 {
     PyVarObject_HEAD_INIT(nullptr, 0)"FFMPy.Decoder",  // The implementation of the __class__.__name__.
     sizeof(C_Decoder),          // The memory length of the class. This value is required for PyObject_New.

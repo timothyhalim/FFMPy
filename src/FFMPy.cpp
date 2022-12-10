@@ -54,13 +54,13 @@ PyMODINIT_FUNC PyInit_FFMPy(void) {
     */
 
     // Configure the __new__ method as the default method. This method is used for building the instances.
-    C_MPDC_ClassInfo.tp_new = PyType_GenericNew;
+    C_Decoder_ClassInfo.tp_new = PyType_GenericNew;
 
     /* Finish the initialization, including the derivations.
      * When success, return 0; Otherwise, return -1 and throw errors. */
-    if (PyType_Ready(&C_MPDC_ClassInfo) < 0)
+    if (PyType_Ready(&C_Decoder_ClassInfo) < 0)
         return nullptr;
-    PyModule_AddObject(pReturn, "Decoder", (PyObject*)&C_MPDC_ClassInfo);  // Add the class as one module member.
+    PyModule_AddObject(pReturn, "Decoder", (PyObject*)&C_Decoder_ClassInfo);  // Add the class as one module member.
     
     return pReturn;
 }
