@@ -1,5 +1,8 @@
 @echo off
 
+SET PATH=%PATH%;%~dp0/ffmpeg_x64/bin;
+@REM echo %PATH%
+
 REM Convenience wrapper for CMake commands
 
 setlocal enableextensions enabledelayedexpansion

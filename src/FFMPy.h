@@ -1,14 +1,13 @@
 #ifndef FFMPy
 #define FFMPy
 
+#include <iostream>
 #include <string>
 #include <Python.h>
 
 extern "C" {
+    #include <libavformat/avformat.h>
     #include <libavcodec/avcodec.h>
-    #include <libavutil/avutil.h>
-    #include <libavutil/imgutils.h>
-    #include <libavutil/mem.h>
     #include <libswscale/swscale.h>
 }
 

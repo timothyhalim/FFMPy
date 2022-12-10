@@ -22,7 +22,7 @@ print(decoder)
 
 print(dir(decoder))
 
-print(decoder.set_filepath("File2"))
+print(decoder.set_filepath("E:/cpp/FFMPy-cmake/video.mp4"))
 print("Testters")
 
 print(decoder.get_filepath())
