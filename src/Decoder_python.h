@@ -76,7 +76,7 @@ static PyObject* C_Decoder_Repr(C_Decoder* self) {  // The __repr__ operator.
 * Additional methods of the classes.
 *****************************************************************************/
 
-PyDoc_STRVAR(Decoder_set_filepath_doc, "set_filepath(obj, number)\
+PyDoc_STRVAR(Decoder_set_filepath_doc, "set_filepath(filepath)\
 \
 Set Decoder path function");
 
@@ -108,13 +108,24 @@ PyObject *Decoder_set_filepath(C_Decoder *self, PyObject *args) {
     Py_RETURN_NONE;
 }
 
-PyDoc_STRVAR(Decoder_get_filepath_doc, "get_filepath(obj, number)\
+PyDoc_STRVAR(Decoder_get_filepath_doc, "get_filepath()\
 \
 Get Decoder path function");
 
 PyObject *Decoder_get_filepath(C_Decoder *self) {
     PyObject* ret = PyUnicode_FromString(
         self->_c_ref->get_filepath().c_str()
+    );
+    return ret;
+}
+
+PyDoc_STRVAR(Decoder_open_file_doc, "open_file()\
+\
+Get Decoder path function");
+
+PyObject *Decoder_open_file(C_Decoder *self) {
+    PyObject* ret = PyLong_FromLong(
+        self->_c_ref->open_file()
     );
     return ret;
 }
@@ -127,6 +138,7 @@ static PyMethodDef C_Decoder_MethodMembers[] =      // Register the member metho
 {  // This step add the methods to the C-API of the class.
     { "set_filepath", (PyCFunction)Decoder_set_filepath, METH_VARARGS, Decoder_set_filepath_doc },
     { "get_filepath", (PyCFunction)Decoder_get_filepath, METH_NOARGS, Decoder_get_filepath_doc },
+    { "open_file", (PyCFunction)Decoder_open_file, METH_NOARGS, Decoder_open_file_doc },
     { nullptr, nullptr, 0, nullptr }
 };
 

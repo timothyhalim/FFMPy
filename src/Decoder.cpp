@@ -25,9 +25,13 @@ std::string Decoder::get_filepath()
     return this->filepath;
 };
 
-// int Decoder::open_file(char *file)
-// {
-
+int Decoder::open_file()
+{
+    if (this->filepath.empty()){
+        return -1;
+    };
+    return 0;
+}
 //     AVFormatContext *pFormatContext = avformat_alloc_context();
 //     if (!pFormatContext) {
 //         // qDebug() << "ERROR could not allocate memory for Format Context";
@@ -159,5 +163,3 @@ std::string Decoder::get_filepath()
 //     av_packet_free(&pPacket);
 //     av_frame_free(&pFrame);
 //     avcodec_free_context(&pCodecContext);
-//     return 0;
-// }

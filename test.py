@@ -26,6 +26,7 @@ print(decoder.set_filepath("File2"))
 print("Testters")
 
 print(decoder.get_filepath())
+print(decoder.open_file())
 # print(PyExt.example(1, 2))
 # print(PyExt.extract_frame(1))
 
