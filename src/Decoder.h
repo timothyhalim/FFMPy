@@ -19,12 +19,6 @@ class Decoder
         bool _is_open;
         std::string filepath;
         
-        // int widthDst, heightDst;            // Target width, height of ExtractFrame().
-        AVFormatContext* context;    // Format context of the video.
-        
-        // uint8_t* RGBbuffer;                 // The buffer of the RGB formatted images.
-        // struct SwsContext* PswsCtx;         // The context of the scale transformator.
-        
         int video_width, video_height;                  // Width, height of the video.
         std::string video_codec;             // Show the name of the current codec.
         int64_t video_bit_rate;                   // File bitrate.

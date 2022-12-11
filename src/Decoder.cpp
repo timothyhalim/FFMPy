@@ -1,12 +1,12 @@
 #include "Decoder.h"
 
 Decoder::Decoder() {
-    this->debug(true);
+    this->debug(false);
     this->_reset();
 };
 
 Decoder::Decoder(std::string filepath) {
-    this->debug(true);
+    this->debug(false);
     this->set_filepath(filepath);
 };
 
@@ -41,9 +41,9 @@ void Decoder::_reset() {
 std::string Decoder::set_filepath(std::string filepath) {
     this->_reset();
     this->filepath = filepath;
-    this->context = this->open();
-    this->_get_file_info(this->context);
-    this->close(this->context);
+    AVFormatContext* pFormatContext = this->open();
+    this->_get_file_info(pFormatContext);
+    this->close(pFormatContext);
     return this->filepath;
 };
 
@@ -219,131 +219,167 @@ int Decoder::close(AVFormatContext* pFormatContext) {
 }
 
 PyObject* Decoder::extract_frame(int64_t frame) {
-    int response = 0;
-    int how_many_packets_to_process = 1;
     if (this->_debug) {
         std::cout << "Extracting frame " << frame <<"\n";
     }
 
     PyObject* byte_list = PyList_New(static_cast<Py_ssize_t>(0));
     
-    this->context = this->open();
-    if (this->_is_open) {
-        const AVCodec* pCodec = NULL;
-        AVCodecParameters* pCodecParameters = NULL;
-        int video_stream_index = -1;
+    AVFormatContext *pFormatContext = this->open();
 
-        for (unsigned int i = 0; i < this->context->nb_streams; i++)
-        {
-            AVCodecParameters *pLocalCodecParameters =  NULL;
-            pLocalCodecParameters = this->context->streams[i]->codecpar;
+    const AVCodec *pCodec = NULL;
+    AVCodecParameters *pCodecParameters = NULL;
+    AVStream* pVideoStream = NULL;
+    int video_stream_index = -1;
 
-            const AVCodec *pLocalCodec = NULL;
+    for (unsigned int i = 0; i < pFormatContext->nb_streams; i++)
+    {
+        AVCodecParameters *pLocalCodecParameters =  NULL;
+        pLocalCodecParameters = pFormatContext->streams[i]->codecpar;
 
-            pLocalCodec = avcodec_find_decoder(pLocalCodecParameters->codec_id);
-            if (pLocalCodec==NULL) {
-                std::cerr << "[ERROR] Unsupported codec!\n";
-                continue;
+        const AVCodec *pLocalCodec = NULL;
+
+        pLocalCodec = avcodec_find_decoder(pLocalCodecParameters->codec_id);
+
+        if (pLocalCodec==NULL) {
+            std::cout << "ERROR unsupported codec!";
+            continue;
+        }
+        if (pLocalCodecParameters->codec_type == AVMEDIA_TYPE_VIDEO) {
+            if (video_stream_index == -1) {
+                video_stream_index = i;
+                pCodec = pLocalCodec;
+                pCodecParameters = pLocalCodecParameters;
+                pVideoStream = pFormatContext->streams[video_stream_index];
             }
-            if (pLocalCodecParameters->codec_type == AVMEDIA_TYPE_VIDEO) {
-                if (video_stream_index == -1) {
-                    video_stream_index = i;
-                    pCodec = pLocalCodec;
-                    pCodecParameters = pLocalCodecParameters;
-                }
+        } else if (pLocalCodecParameters->codec_type == AVMEDIA_TYPE_AUDIO) {
+        }
+    }
+
+    if (video_stream_index == -1) {
+        std::cout << "File does not contain a video stream!";
+    }
+    AVCodecContext *pCodecContext = avcodec_alloc_context3(pCodec);
+    if (!pCodecContext)
+    {
+        std::cout << "failed to allocated memory for AVCodecContext";
+    }
+
+    if (avcodec_parameters_to_context(pCodecContext, pCodecParameters) < 0)
+    {
+        std::cout << "failed to copy codec params to codec context";
+    }
+
+    if (avcodec_open2(pCodecContext, pCodec, NULL) < 0)
+    {
+        std::cout << "failed to open codec through avcodec_open2";
+    }
+
+    AVFrame *pFrame = av_frame_alloc();
+    if (!pFrame)
+    {
+        std::cout << "failed to allocate memory for AVFrame";
+    }
+
+    AVPacket *pPacket = av_packet_alloc();
+    if (!pPacket)
+    {
+        std::cout << "failed to allocate memory for AVPacket";
+    }
+
+    avcodec_flush_buffers(pCodecContext);
+    // SEEK TO FRAME
+    
+    auto time_base = pVideoStream->time_base;
+    auto frame_base = pVideoStream->avg_frame_rate;
+    auto seekTimeStamp = pVideoStream->start_time 
+                        + av_rescale(
+                            av_rescale(frame, time_base.den, time_base.num), 
+                            frame_base.den, frame_base.num
+                        );
+
+    if (av_seek_frame(pFormatContext, video_stream_index, seekTimeStamp, AVSEEK_FLAG_BACKWARD) < 0) {
+        std::cerr << "AV seek frame fail!" << "\n";
+        av_seek_frame(pFormatContext, -1, 0, AVSEEK_FLAG_BACKWARD);
+    }
+
+    int response = 0;
+    int how_many_packets_to_process = 1;
+
+    while (av_read_frame(pFormatContext, pPacket) >= 0)
+    {
+        // if it's the video stream
+        if (pPacket->stream_index == video_stream_index) {
+            std::cout << "AVPacket->pts " << pPacket->pts;
+            response = avcodec_send_packet(pCodecContext, pPacket);
+
+            if (response < 0) {
+                std::cout << "Error while sending a packet to the decoder";
+                break;
             }
-        }
-        if (video_stream_index == -1) {
-            std::cerr << "[ERROR] File does not contain a video stream!\n";
-        }
 
-        AVFrame* pFrame = av_frame_alloc();
-        if (!pFrame){
-            std::cerr << "[ERROR] Failed to allocate memory for AVFrame\n";
-        }
-        AVCodecContext* pCodecContext = avcodec_alloc_context3(pCodec);
-        if (!pCodecContext)
-        {
-            std::cerr << "[ERROR] Failed to allocated memory for AVCodecContext\n";
-        }
-        pCodecContext->thread_count = 4; // Set Thread
+            SwsContext *swsCtx = sws_getContext(
+                    pCodecContext->width, pCodecContext->height, pCodecContext->pix_fmt, 
+                    pCodecContext->width, pCodecContext->height, AV_PIX_FMT_RGB24, 
+                    SWS_BICUBIC, NULL, NULL, NULL
+                );
 
-        if (avcodec_parameters_to_context(pCodecContext, pCodecParameters) < 0)
-        {
-            std::cerr << "[ERROR] Failed to copy codec params to codec context\n";
-        }
-
-        if (avcodec_open2(pCodecContext, pCodec, NULL) < 0)
-        {
-            std::cerr << "[ERROR] Failed to open codec through avcodec_open2\n";
-        }
-        AVPacket* pPacket = av_packet_alloc();
-        if (!pPacket)
-        {
-            std::cerr << "[ERROR] Failed to allocate memory for AVPacket\n";
-        }
-
-        int processed_frame = 0;
-        while (av_read_frame(this->context, pPacket) >= 0) {
-            // if it's the video stream
-            if (pPacket->stream_index == video_stream_index) {
-                response = avcodec_send_packet(pCodecContext, pPacket);
-
-                if (response < 0) {
-                    std::cerr << "[ERROR] Failed to send a packet to the decoder\n";
+            while (response >= 0){
+                    response = avcodec_receive_frame(pCodecContext, pFrame);
+                if (response == AVERROR(EAGAIN) || response == AVERROR_EOF) {
+                    break;
+                } else if (response < 0) {
+                    std::cout << "Error while receiving a frame from the decoder";
                     break;
                 }
 
-                while (response >= 0) {
-                    response = avcodec_receive_frame(pCodecContext, pFrame);
-                    
-                    if (this->_debug) {
-                        std::cout << "Reading Response " << response <<"\n";
-                        if (response == AVERROR(EAGAIN)) {
-                            std::cout << "Output not available\n";
-                        }
-                        if (response == AVERROR_EOF) {
-                            std::cout << "Decoder flushed!\n";
-                        }
-                    }
-
-                    if (response == AVERROR(EAGAIN) || response == AVERROR_EOF) {
-                        break;
-                    } else if (response < 0) {
-                        std::cerr << "[ERROR] Failed to receive a frame from the decoder\n";
-                        break;
-                    } 
-                    if (response >= 0) {
-                        std::cout << "Decoded\n";
-                        break;
-                    }
-                    
-                }
-                // Decode Frame
                 if (response >= 0) {
-                    std::cout << sizeof(pFrame->data) / sizeof(pFrame->data[0]) << "number of byte\n";
-                    for (int i = 0; i < sizeof(pFrame->data) / sizeof(pFrame->data[0]); i++) {
-                        PyList_Append(byte_list, PyLong_FromLong(*pFrame->data[i]));
+                    std::cout << " Decoded\n";
+                    std::cout << "Frame Resolution: " << pFrame->width << " x " << pFrame->height << "\n";
+                    
+                    std::cout << pFrame->pkt_size << "\n";
+                    std::cout << pFrame->linesize[0] << "\n";
+
+                    AVFrame *pFrameRGB = av_frame_alloc();
+                    av_frame_copy_props(pFrameRGB, pFrame);
+                    pFrameRGB->width = pFrame->width;
+                    pFrameRGB->height = pFrame->height;
+                    pFrameRGB->format = AV_PIX_FMT_RGB24;
+                    av_frame_get_buffer(pFrameRGB, 0);
+
+                    sws_scale(swsCtx, pFrame->data, pFrame->linesize, 0, 
+                              pCodecContext->height, pFrameRGB->data, pFrameRGB->linesize);
+                    
+                    // auto newdata = new uint8_t[static_cast<size_t>(pFrame->height) * static_cast<size_t>(pFrame->width) * 3];
+                    // memcpy(newdata, pFrameRGB->data[0], static_cast<size_t>(pFrame->height) * static_cast<size_t>(pFrame->width) * 3);
+    
+                    for(int y = 0; y < pCodecContext->height; ++y)
+                    {
+                        for(int x = 0; x < pCodecContext->width; ++x)
+                        {
+                            int p = x * 3 + y * pFrameRGB->linesize[0];
+                            int r = pFrameRGB->data[0][p];
+                            int g = pFrameRGB->data[0][p+1];
+                            int b = pFrameRGB->data[0][p+2];
+                            PyList_Append(byte_list, PyLong_FromLong(r));
+                            PyList_Append(byte_list, PyLong_FromLong(g));
+                            PyList_Append(byte_list, PyLong_FromLong(b));
+                        }
                     }
+                    
+                    break;
                 }
-                ++processed_frame;
-                break;
+                av_frame_unref(pFrame);
             }
-            av_packet_unref(pPacket);
         }
-        std::cout << "Processed frame: " << processed_frame << "\n";
-        
-        if (pFrame) {
-            av_frame_free(&pFrame);
-        }
-        if (pPacket) {
-            av_packet_free(&pPacket);
-        }
-        if (pCodecContext) {
-            avcodec_free_context(&pCodecContext);
-        }
+        av_packet_unref(pPacket);
+        break;
     }
-    this->close(this->context);
+
+    avformat_close_input(&pFormatContext);
+    av_packet_free(&pPacket);
+    av_frame_free(&pFrame);
+    avcodec_free_context(&pCodecContext);
 
     PyObject* bytes = PyBytes_FromObject(byte_list);
     return bytes;
