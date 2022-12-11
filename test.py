@@ -29,4 +29,4 @@ print(decoder.get_filepath())
 print(decoder.get_file_info())
 
 print("EXTRACTING FRAME")
-frame = decoder.extract_frame(1)
+frame = decoder.extract_frame(2)

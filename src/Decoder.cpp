@@ -223,6 +223,12 @@ PyObject* Decoder::extract_frame(int64_t frame) {
         std::cout << "Extracting frame " << frame <<"\n";
     }
 
+    if (frame >= this->video_frame_count) {
+        frame = this->video_frame_count - 1;
+    } else if (frame < 0) {
+        frame = 0;
+    }
+
     PyObject* byte_list = PyList_New(static_cast<Py_ssize_t>(0));
     
     AVFormatContext *pFormatContext = this->open();
@@ -257,34 +263,34 @@ PyObject* Decoder::extract_frame(int64_t frame) {
     }
 
     if (video_stream_index == -1) {
-        std::cout << "File does not contain a video stream!";
+        std::cerr << "[ERROR] File does not contain a video stream!";
     }
     AVCodecContext *pCodecContext = avcodec_alloc_context3(pCodec);
     if (!pCodecContext)
     {
-        std::cout << "failed to allocated memory for AVCodecContext";
+        std::cerr << "[ERROR] Failed to allocated memory for AVCodecContext";
     }
 
     if (avcodec_parameters_to_context(pCodecContext, pCodecParameters) < 0)
     {
-        std::cout << "failed to copy codec params to codec context";
+        std::cerr << "[ERROR] Failed to copy codec params to codec context";
     }
 
     if (avcodec_open2(pCodecContext, pCodec, NULL) < 0)
     {
-        std::cout << "failed to open codec through avcodec_open2";
+        std::cerr << "[ERROR] Failed to open codec through avcodec_open2";
     }
 
     AVFrame *pFrame = av_frame_alloc();
     if (!pFrame)
     {
-        std::cout << "failed to allocate memory for AVFrame";
+        std::cerr << "[ERROR] Failed to allocate memory for AVFrame";
     }
 
     AVPacket *pPacket = av_packet_alloc();
     if (!pPacket)
     {
-        std::cout << "failed to allocate memory for AVPacket";
+        std::cerr << "[ERROR] Failed to allocate memory for AVPacket";
     }
 
     avcodec_flush_buffers(pCodecContext);
@@ -297,24 +303,27 @@ PyObject* Decoder::extract_frame(int64_t frame) {
                             av_rescale(frame, time_base.den, time_base.num), 
                             frame_base.den, frame_base.num
                         );
-
+    if (this->_debug) {
+        std::cout << "Seeking to frame " << frame << ", timestamp " << seekTimeStamp << "\n";
+    }
     if (av_seek_frame(pFormatContext, video_stream_index, seekTimeStamp, AVSEEK_FLAG_BACKWARD) < 0) {
         std::cerr << "AV seek frame fail!" << "\n";
         av_seek_frame(pFormatContext, -1, 0, AVSEEK_FLAG_BACKWARD);
     }
 
     int response = 0;
-    int how_many_packets_to_process = 1;
+    bool found = false;
 
     while (av_read_frame(pFormatContext, pPacket) >= 0)
     {
         // if it's the video stream
         if (pPacket->stream_index == video_stream_index) {
-            std::cout << "AVPacket->pts " << pPacket->pts;
+            if (this->_debug) {
+                std::cout << "AVPacket->pts " << pPacket->pts << "\n";
+            }
             response = avcodec_send_packet(pCodecContext, pPacket);
-
             if (response < 0) {
-                std::cout << "Error while sending a packet to the decoder";
+                std::cerr << "Error while sending a packet to the decoder";
                 break;
             }
 
@@ -329,16 +338,14 @@ PyObject* Decoder::extract_frame(int64_t frame) {
                 if (response == AVERROR(EAGAIN) || response == AVERROR_EOF) {
                     break;
                 } else if (response < 0) {
-                    std::cout << "Error while receiving a frame from the decoder";
+                    std::cerr << "Error while receiving a frame from the decoder";
                     break;
                 }
 
                 if (response >= 0) {
-                    std::cout << " Decoded\n";
-                    std::cout << "Frame Resolution: " << pFrame->width << " x " << pFrame->height << "\n";
-                    
-                    std::cout << pFrame->pkt_size << "\n";
-                    std::cout << pFrame->linesize[0] << "\n";
+                    if (pPacket->pts < seekTimeStamp) {
+                        break;
+                    }
 
                     AVFrame *pFrameRGB = av_frame_alloc();
                     av_frame_copy_props(pFrameRGB, pFrame);
@@ -349,9 +356,6 @@ PyObject* Decoder::extract_frame(int64_t frame) {
 
                     sws_scale(swsCtx, pFrame->data, pFrame->linesize, 0, 
                               pCodecContext->height, pFrameRGB->data, pFrameRGB->linesize);
-                    
-                    // auto newdata = new uint8_t[static_cast<size_t>(pFrame->height) * static_cast<size_t>(pFrame->width) * 3];
-                    // memcpy(newdata, pFrameRGB->data[0], static_cast<size_t>(pFrame->height) * static_cast<size_t>(pFrame->width) * 3);
     
                     for(int y = 0; y < pCodecContext->height; ++y)
                     {
@@ -366,14 +370,16 @@ PyObject* Decoder::extract_frame(int64_t frame) {
                             PyList_Append(byte_list, PyLong_FromLong(b));
                         }
                     }
-                    
+                    found = true;
                     break;
                 }
                 av_frame_unref(pFrame);
             }
         }
         av_packet_unref(pPacket);
-        break;
+        if (found){
+            break;
+        }
     }
 
     avformat_close_input(&pFormatContext);
