@@ -10,27 +10,20 @@ if os.path.exists(lib):
 import FFMPy
 
 print(dir(FFMPy))
-print("EMPTY DECODER!")
+
 decoder = FFMPy.Decoder()
 print(decoder)
-
+print(decoder.set_filepath("E:/cpp/FFMPy-cmake/video.mp4"))
 
 print("FILL DECODER!")
-decoder = FFMPy.Decoder("File")
+decoder = FFMPy.Decoder("E:/cpp/FFMPy-cmake/video.mp4")
 print(decoder)
-
-
 print(dir(decoder))
 
-# print(decoder.set_filepath("E:/cpp/FFMPy-cmake/video.mp4"))
-# print(decoder.set_filepath(r"F:\TDW\2020-11-13 14-15-16.mp4"))
-print(decoder.set_filepath(r"File"))
 print(decoder.get_filepath())
-
-import time
-start = time.time()
-print("Processed in %.02f" %(time.time() - start))
 print(decoder.get_file_info())
+print(decoder.extract_frame(1))
+
 # print(PyExt.example(1, 2))
 # print(PyExt.extract_frame(1))
 

@@ -127,6 +127,27 @@ PyObject *Decoder_get_file_info(C_Decoder *self) {
     return self->_c_ref->get_file_info();
 }
 
+PyDoc_STRVAR(Decoder_extract_frame_doc, "extract_frame(obj, number)\
+\
+Extract frame function");
+
+PyObject *Decoder_extract_frame(C_Decoder *self, PyObject *args) {
+    PyObject *frame;
+	if (!PyArg_ParseTuple(args, "O", &frame)) {
+        // Check if argument is correct
+        return NULL;
+	}
+
+    unsigned long long _frame = PyLong_AsUnsignedLongLong(frame);
+    if (_frame == -1 && PyErr_Occurred()) {
+        // Check if argument is unsigned int
+        PyErr_Clear();
+        return PyErr_Format(PyExc_TypeError, "Parameter must be an unsigned integer type, but got %s", Py_TYPE
+        (frame)->tp_name);
+    }
+
+    return self->_c_ref->extract_frame(_frame);
+}
 
 /*****************************************************************************
 * Register the methods of each class.
@@ -137,6 +158,7 @@ static PyMethodDef C_Decoder_MethodMembers[] =      // Register the member metho
     { "set_filepath", (PyCFunction)Decoder_set_filepath, METH_VARARGS, Decoder_set_filepath_doc },
     { "get_filepath", (PyCFunction)Decoder_get_filepath, METH_NOARGS, Decoder_get_filepath_doc },
     { "get_file_info", (PyCFunction)Decoder_get_file_info, METH_NOARGS, Decoder_get_file_info_doc },
+    { "extract_frame", (PyCFunction)Decoder_extract_frame, METH_VARARGS, Decoder_extract_frame_doc },
     { nullptr, nullptr, 0, nullptr }
 };
 
