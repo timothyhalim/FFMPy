@@ -130,6 +130,15 @@ PyObject *Decoder_open_file(C_Decoder *self) {
     return ret;
 }
 
+PyDoc_STRVAR(Decoder_get_file_info_doc, "get_file_info()\
+\
+Get file info");
+
+PyObject *Decoder_get_file_info(C_Decoder *self) {
+    return self->_c_ref->get_file_info();
+}
+
+
 /*****************************************************************************
 * Register the methods of each class.
 *****************************************************************************/
@@ -139,6 +148,7 @@ static PyMethodDef C_Decoder_MethodMembers[] =      // Register the member metho
     { "set_filepath", (PyCFunction)Decoder_set_filepath, METH_VARARGS, Decoder_set_filepath_doc },
     { "get_filepath", (PyCFunction)Decoder_get_filepath, METH_NOARGS, Decoder_get_filepath_doc },
     { "open_file", (PyCFunction)Decoder_open_file, METH_NOARGS, Decoder_open_file_doc },
+    { "get_file_info", (PyCFunction)Decoder_get_file_info, METH_NOARGS, Decoder_get_file_info_doc },
     { nullptr, nullptr, 0, nullptr }
 };
 
