@@ -108,23 +108,6 @@ PyObject* Decoder::get_file_info() {
     PyDict_SetItemString(res, key.c_str(), val);
     Py_DECREF(val);
 
-
-    // key.assign("frameRate");
-    // val = Py_BuildValue("(ii)", frameRate.num, frameRate.den);
-    // PyDict_SetItemString(res, key.c_str(), val);
-    // Py_DECREF(val);
-    // if (PStreamContex.enc) {
-    //     key.assign("nthread");
-    //     val = Py_BuildValue("i", PStreamContex.enc->thread_count);
-    //     PyDict_SetItemString(res, key.c_str(), val);
-    //     Py_DECREF(val);
-    // }
-    // else {
-    //     key.assign("nthread");
-    //     val = Py_BuildValue("i", nthread);
-    //     PyDict_SetItemString(res, key.c_str(), val);
-    //     Py_DECREF(val);
-    // }
     return res;
 }
 
@@ -248,7 +231,7 @@ PyObject* Decoder::extract_frame(int64_t frame) {
         pLocalCodec = avcodec_find_decoder(pLocalCodecParameters->codec_id);
 
         if (pLocalCodec==NULL) {
-            std::cout << "ERROR unsupported codec!";
+            std::cerr << "[ERROR] Unsupported codec!";
             continue;
         }
         if (pLocalCodecParameters->codec_type == AVMEDIA_TYPE_VIDEO) {
@@ -343,7 +326,7 @@ PyObject* Decoder::extract_frame(int64_t frame) {
                 }
 
                 if (response >= 0) {
-                    if (pPacket->pts < seekTimeStamp) {
+                    if (pFrame->pts < seekTimeStamp) {
                         break;
                     }
 
@@ -357,9 +340,16 @@ PyObject* Decoder::extract_frame(int64_t frame) {
                     sws_scale(swsCtx, pFrame->data, pFrame->linesize, 0, 
                               pCodecContext->height, pFrameRGB->data, pFrameRGB->linesize);
     
-                    for(int y = 0; y < pCodecContext->height; ++y)
+                    if (this->_debug) {
+                        std::cout << "Frame linesize " << pFrameRGB->linesize[0] << "\n";
+                        std::cout << "Frame width " << pFrameRGB->width << "\n";
+                        std::cout << "Frame height " << pFrameRGB->height << "\n";
+                    }
+
+                    // This looping method seems slow
+                    for(int y = 0; y < pFrameRGB->height; ++y)
                     {
-                        for(int x = 0; x < pCodecContext->width; ++x)
+                        for(int x = 0; x < pFrameRGB->width; ++x)
                         {
                             int p = x * 3 + y * pFrameRGB->linesize[0];
                             int r = pFrameRGB->data[0][p];
@@ -371,6 +361,7 @@ PyObject* Decoder::extract_frame(int64_t frame) {
                         }
                     }
                     found = true;
+                    av_frame_free(&pFrameRGB);
                     break;
                 }
                 av_frame_unref(pFrame);
