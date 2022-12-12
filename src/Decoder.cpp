@@ -114,8 +114,7 @@ PyObject* Decoder::get_file_info() {
 void Decoder::_get_file_info(AVFormatContext* pFormatContext) {
     int video_stream_index = -1;
 
-    for (unsigned int i = 0; i < pFormatContext->nb_streams; i++)
-    {
+    for (unsigned int i = 0; i < pFormatContext->nb_streams; i++) {
         AVCodecParameters *pLocalCodecParameters =  NULL;
         pLocalCodecParameters = pFormatContext->streams[i]->codecpar;
 
@@ -174,7 +173,7 @@ void Decoder::_get_file_info(AVFormatContext* pFormatContext) {
 AVFormatContext* Decoder::open() {
     this->_is_open = false;
 
-    if (this->filepath.empty()){
+    if (this->filepath.empty()) {
         std::cerr << "[ERROR] Filepath is not set yet!\n";
     };
 
@@ -221,8 +220,7 @@ PyObject* Decoder::extract_frame(int64_t frame) {
     AVStream* pVideoStream = NULL;
     int video_stream_index = -1;
 
-    for (unsigned int i = 0; i < pFormatContext->nb_streams; i++)
-    {
+    for (unsigned int i = 0; i < pFormatContext->nb_streams; i++) {
         AVCodecParameters *pLocalCodecParameters =  NULL;
         pLocalCodecParameters = pFormatContext->streams[i]->codecpar;
 
@@ -242,6 +240,7 @@ PyObject* Decoder::extract_frame(int64_t frame) {
                 pVideoStream = pFormatContext->streams[video_stream_index];
             }
         } else if (pLocalCodecParameters->codec_type == AVMEDIA_TYPE_AUDIO) {
+
         }
     }
 
@@ -249,30 +248,25 @@ PyObject* Decoder::extract_frame(int64_t frame) {
         std::cerr << "[ERROR] File does not contain a video stream!";
     }
     AVCodecContext *pCodecContext = avcodec_alloc_context3(pCodec);
-    if (!pCodecContext)
-    {
+    if (!pCodecContext) {
         std::cerr << "[ERROR] Failed to allocated memory for AVCodecContext";
     }
 
-    if (avcodec_parameters_to_context(pCodecContext, pCodecParameters) < 0)
-    {
+    if (avcodec_parameters_to_context(pCodecContext, pCodecParameters) < 0) {
         std::cerr << "[ERROR] Failed to copy codec params to codec context";
     }
 
-    if (avcodec_open2(pCodecContext, pCodec, NULL) < 0)
-    {
+    if (avcodec_open2(pCodecContext, pCodec, NULL) < 0) {
         std::cerr << "[ERROR] Failed to open codec through avcodec_open2";
     }
 
     AVFrame *pFrame = av_frame_alloc();
-    if (!pFrame)
-    {
+    if (!pFrame) {
         std::cerr << "[ERROR] Failed to allocate memory for AVFrame";
     }
 
     AVPacket *pPacket = av_packet_alloc();
-    if (!pPacket)
-    {
+    if (!pPacket) {
         std::cerr << "[ERROR] Failed to allocate memory for AVPacket";
     }
 
@@ -297,8 +291,7 @@ PyObject* Decoder::extract_frame(int64_t frame) {
     int response = 0;
     bool found = false;
 
-    while (av_read_frame(pFormatContext, pPacket) >= 0)
-    {
+    while (av_read_frame(pFormatContext, pPacket) >= 0) {
         // if it's the video stream
         if (pPacket->stream_index == video_stream_index) {
             if (this->_debug) {
@@ -317,7 +310,7 @@ PyObject* Decoder::extract_frame(int64_t frame) {
                 );
 
             while (response >= 0){
-                    response = avcodec_receive_frame(pCodecContext, pFrame);
+                response = avcodec_receive_frame(pCodecContext, pFrame);
                 if (response == AVERROR(EAGAIN) || response == AVERROR_EOF) {
                     break;
                 } else if (response < 0) {
@@ -347,10 +340,8 @@ PyObject* Decoder::extract_frame(int64_t frame) {
                     }
 
                     // This looping method seems slow
-                    for(int y = 0; y < pFrameRGB->height; ++y)
-                    {
-                        for(int x = 0; x < pFrameRGB->width; ++x)
-                        {
+                    for(int y = 0; y < pFrameRGB->height; ++y) {
+                        for(int x = 0; x < pFrameRGB->width; ++x) {
                             int p = x * 3 + y * pFrameRGB->linesize[0];
                             int r = pFrameRGB->data[0][p];
                             int g = pFrameRGB->data[0][p+1];
