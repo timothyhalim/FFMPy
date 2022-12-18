@@ -13,12 +13,24 @@ class Decoder
         PyObject* get_file_info();
         PyObject* extract_frame(int64_t frame);
         bool debug(bool state);
+        
+        int open_stream();
+        int close_stream();
 
     private:
         bool _debug;
         bool _is_open;
+        bool _is_streaming;
         std::string filepath;
-        
+
+        AVFormatContext* pFormatContext;
+        AVStream* pVideoStream;
+        int video_stream_index;
+        AVCodecContext *pCodecContext;
+        AVFrame *pFrame;
+        AVPacket *pPacket;
+        SwsContext *swsCtx;
+
         int video_width, video_height;                  // Width, height of the video.
         std::string video_codec;             // Show the name of the current codec.
         int64_t video_bit_rate;                   // File bitrate.
@@ -33,7 +45,7 @@ class Decoder
         int64_t audio_bit_rate;                   // File bitrate.
         
         void _reset();
-        AVFormatContext* open();
-        int close(AVFormatContext* pFormatContext);
-        void _get_file_info(AVFormatContext* pFormatContext);
+        int open();
+        int close();
+        void _get_file_info();
 };

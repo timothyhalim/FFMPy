@@ -127,7 +127,7 @@ PyObject *Decoder_get_file_info(C_Decoder *self) {
     return self->_c_ref->get_file_info();
 }
 
-PyDoc_STRVAR(Decoder_extract_frame_doc, "extract_frame(obj, number)\
+PyDoc_STRVAR(Decoder_extract_frame_doc, "extract_frame(number)\
 \
 Extract frame function");
 
@@ -149,6 +149,28 @@ PyObject *Decoder_extract_frame(C_Decoder *self, PyObject *args) {
     return self->_c_ref->extract_frame(_frame);
 }
 
+PyDoc_STRVAR(Decoder_open_stream_doc, "open_stream()\
+\
+Open file for streaming");
+
+PyObject *Decoder_open_stream(C_Decoder *self) {
+    PyObject* ret = PyBool_FromLong(
+        self->_c_ref->open_stream()
+    );
+    return ret;
+}
+
+PyDoc_STRVAR(Decoder_close_stream_doc, "close_stream()\
+\
+Close file stream");
+
+PyObject *Decoder_close_stream(C_Decoder *self) {
+    PyObject* ret = PyBool_FromLong(
+        self->_c_ref->close_stream()
+    );
+    return ret;
+}
+
 /*****************************************************************************
 * Register the methods of each class.
 *****************************************************************************/
@@ -159,6 +181,8 @@ static PyMethodDef C_Decoder_MethodMembers[] =      // Register the member metho
     { "get_filepath", (PyCFunction)Decoder_get_filepath, METH_NOARGS, Decoder_get_filepath_doc },
     { "get_file_info", (PyCFunction)Decoder_get_file_info, METH_NOARGS, Decoder_get_file_info_doc },
     { "extract_frame", (PyCFunction)Decoder_extract_frame, METH_VARARGS, Decoder_extract_frame_doc },
+    { "open_stream", (PyCFunction)Decoder_open_stream, METH_NOARGS, Decoder_open_stream_doc },
+    { "close_stream", (PyCFunction)Decoder_close_stream, METH_NOARGS, Decoder_close_stream_doc },
     { nullptr, nullptr, 0, nullptr }
 };
 
