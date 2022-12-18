@@ -9,6 +9,7 @@ extern "C" {
     #include <libavformat/avformat.h>
     #include <libavcodec/avcodec.h>
     #include <libswscale/swscale.h>
+    #include <libavutil/imgutils.h>
 }
 
 /* For backward compatibility with release 9 or so of libav */

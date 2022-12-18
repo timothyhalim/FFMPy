@@ -373,36 +373,23 @@ PyObject* Decoder::extract_frame(int64_t frame) {
                             break;
                         }
 
-                        AVFrame *pFrameRGB = av_frame_alloc();
-                        av_frame_copy_props(pFrameRGB, this->pFrame);
-                        pFrameRGB->width = this->pFrame->width;
-                        pFrameRGB->height = this->pFrame->height;
-                        pFrameRGB->format = AV_PIX_FMT_RGB24;
-                        av_frame_get_buffer(pFrameRGB, 0);
-
-                        sws_scale(this->swsCtx, this->pFrame->data, this->pFrame->linesize, 0, 
-                                this->pCodecContext->height, pFrameRGB->data, pFrameRGB->linesize);
-        
-                        if (this->_debug) {
-                            std::cout << "Frame linesize " << pFrameRGB->linesize[0] << "\n";
-                            std::cout << "Frame width " << pFrameRGB->width << "\n";
-                            std::cout << "Frame height " << pFrameRGB->height << "\n";
-                        }
+                        uint8_t* rgb_data[4];  int rgb_linesize[4];
+                        av_image_alloc(rgb_data, rgb_linesize, this->pFrame->width, this->pFrame->height, AV_PIX_FMT_RGB24, 32); 
+                        sws_scale(this->swsCtx, this->pFrame->data, this->pFrame->linesize, 0, this->pFrame->height, rgb_data, rgb_linesize);
 
                         // This looping method seems slow
-                        for(int y = 0; y < pFrameRGB->height; ++y) {
-                            for(int x = 0; x < pFrameRGB->width; ++x) {
-                                int p = x * 3 + y * pFrameRGB->linesize[0];
-                                int r = pFrameRGB->data[0][p];
-                                int g = pFrameRGB->data[0][p+1];
-                                int b = pFrameRGB->data[0][p+2];
+                        for(int y = 0; y < pFrame->height; ++y) {
+                            for(int x = 0; x < pFrame->width; ++x) {
+                                int p = x * 3 + y * rgb_linesize[0];
+                                int r = rgb_data[0][p];
+                                int g = rgb_data[0][p+1];
+                                int b = rgb_data[0][p+2];
                                 PyList_Append(byte_list, PyLong_FromLong(r));
                                 PyList_Append(byte_list, PyLong_FromLong(g));
                                 PyList_Append(byte_list, PyLong_FromLong(b));
                             }
                         }
                         found = true;
-                        av_frame_free(&pFrameRGB);
                         break;
                     }
                     av_frame_unref(this->pFrame);
