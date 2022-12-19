@@ -28,8 +28,26 @@ print("Decoder get path and info")
 print(decoder.get_filepath())
 print(decoder.get_file_info())
 
-print("EXTRACTING FRAME")
+print("EXTRACTING One FRAME")
 from time import time
 start = time()
 frame = decoder.extract_frame(2)
-print("Extracted in %.02f sec" %(time()-start))
+print("Extracted in %.03f sec" %(time()-start))
+
+print("EXTRACTING 25 FRAME")
+# This method is better used to extract one frame since it open the file then extract and close the file
+from time import time
+start = time()
+for i in range(25):
+    frame = decoder.extract_frame(i)
+print("Extracted in %.03f sec" %(time()-start))
+
+print("EXTRACTING 25 FRAME With stream")
+# This method is better used to extract multiple frames since it keeps the file open until close_stream is called
+from time import time
+start = time()
+decoder.open_stream()
+for i in range(25):
+    frame = decoder.extract_frame(i)
+decoder.close_stream()
+print("Extracted in %.03f sec" %(time()-start))
