@@ -318,7 +318,7 @@ PyObject* Decoder::extract_frame(int64_t frame) {
         frame = 0;
     }
 
-    PyObject* byte_list = PyList_New(static_cast<Py_ssize_t>(0));
+    std::vector<uint8_t> rgb_arr;
     
     bool extract_one_frame = false;
     if (!this->_is_streaming){
@@ -377,17 +377,15 @@ PyObject* Decoder::extract_frame(int64_t frame) {
                         av_image_alloc(rgb_data, rgb_linesize, this->pFrame->width, this->pFrame->height, AV_PIX_FMT_RGB24, 32); 
                         sws_scale(this->swsCtx, this->pFrame->data, this->pFrame->linesize, 0, this->pFrame->height, rgb_data, rgb_linesize);
 
-                        // This looping method seems slow
+                        int rgb_size = pFrame->height * rgb_linesize[0];
+                        std::vector<uint8_t> rgb_vector(rgb_size);
+                        memcpy(rgb_vector.data(), rgb_data[0], rgb_size);
                         for(int y = 0; y < pFrame->height; ++y) {
-                            for(int x = 0; x < pFrame->width; ++x) {
-                                int p = x * 3 + y * rgb_linesize[0];
-                                int r = rgb_data[0][p];
-                                int g = rgb_data[0][p+1];
-                                int b = rgb_data[0][p+2];
-                                PyList_Append(byte_list, PyLong_FromLong(r));
-                                PyList_Append(byte_list, PyLong_FromLong(g));
-                                PyList_Append(byte_list, PyLong_FromLong(b));
-                            }
+                            rgb_arr.insert(
+                                rgb_arr.end(), 
+                                rgb_vector.begin() + y * rgb_linesize[0],
+                                rgb_vector.begin() + y * rgb_linesize[0] + 3 * pFrame->width
+                            );
                         }
                         found = true;
                         break;
@@ -405,6 +403,6 @@ PyObject* Decoder::extract_frame(int64_t frame) {
         this->close_stream();
     }
 
-    PyObject* bytes = PyBytes_FromObject(byte_list);
-    return bytes;
+    PyObject* arr = vec_to_array(rgb_arr);
+    return arr;
 }

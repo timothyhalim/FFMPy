@@ -1,8 +1,9 @@
 #pragma once
 #include "FFMPy.h"
+#include "Utils.h"
 
-class Decoder
-{
+
+class Decoder {
     public:
         Decoder();
         Decoder(std::string);

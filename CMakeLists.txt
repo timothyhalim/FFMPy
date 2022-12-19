@@ -46,6 +46,8 @@ set(SRC
     src/Decoder.h
     src/Decoder.cpp
     src/Decoder_python.h
+    src/Utils.h
+    src/Utils.cpp
 )
 
 # Tell CMake to create the dll
