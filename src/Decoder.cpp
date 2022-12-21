@@ -283,7 +283,7 @@ int Decoder::open_stream() {
 
     this->swsCtx = sws_getContext(
             this->pCodecContext->width, this->pCodecContext->height, this->pCodecContext->pix_fmt, 
-            this->pCodecContext->width, this->pCodecContext->height, AV_PIX_FMT_RGB24, 
+            this->pCodecContext->width, this->pCodecContext->height, AV_PIX_FMT_RGBA, 
             SWS_BICUBIC, NULL, NULL, NULL
         );
 
@@ -374,7 +374,7 @@ PyObject* Decoder::extract_frame(int64_t frame) {
                         }
 
                         uint8_t* rgb_data[4];  int rgb_linesize[4];
-                        av_image_alloc(rgb_data, rgb_linesize, this->pFrame->width, this->pFrame->height, AV_PIX_FMT_RGB24, 32); 
+                        av_image_alloc(rgb_data, rgb_linesize, this->pFrame->width, this->pFrame->height, AV_PIX_FMT_RGBA, 32); 
                         sws_scale(this->swsCtx, this->pFrame->data, this->pFrame->linesize, 0, this->pFrame->height, rgb_data, rgb_linesize);
 
                         int rgb_size = pFrame->height * rgb_linesize[0];
@@ -384,7 +384,7 @@ PyObject* Decoder::extract_frame(int64_t frame) {
                             rgb_arr.insert(
                                 rgb_arr.end(), 
                                 rgb_vector.begin() + y * rgb_linesize[0],
-                                rgb_vector.begin() + y * rgb_linesize[0] + 3 * pFrame->width
+                                rgb_vector.begin() + y * rgb_linesize[0] + 4 * pFrame->width
                             );
                         }
                         found = true;
