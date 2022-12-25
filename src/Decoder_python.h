@@ -51,7 +51,6 @@ static int C_Decoder_init(C_Decoder* self, PyObject* args, PyObject* kwargs) {  
     }
 
     _filepath.clear();
-    //cout << sizeof(self->_in_Handle) << " - " << sizeof(unsigned long long) << endl;
     return 0;
 }
 
@@ -63,8 +62,12 @@ static void C_Decoder_Destruct(C_Decoder* self) {  // Destructor
 }
 
 static PyObject* C_Decoder_Str(C_Decoder* self) {  // The __str__ (print) operator.
-    // char *desc = ;
-    return PyUnicode_FromString(self->_c_ref->get_input_file().c_str());  // Convert the string to unicode wide char.
+    std::string s;
+    if (self->_c_ref->get_input_file().empty())
+        s = "Decoder()";
+    else
+        s = "Decoder('" + self->_c_ref->get_input_file() + "')";
+    return PyUnicode_FromString(s.c_str());  // Convert the string to unicode wide char.
 }
 
 static PyObject* C_Decoder_Repr(C_Decoder* self) {  // The __repr__ operator.
