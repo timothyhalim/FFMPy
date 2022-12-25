@@ -47,7 +47,7 @@ static int C_Decoder_init(C_Decoder* self, PyObject* args, PyObject* kwargs) {  
 
     self->_c_ref = new Decoder;
     if (!_filepath.empty()) {
-        self->_c_ref->set_filepath(_filepath);
+        self->_c_ref->set_input_file(_filepath);
     }
 
     _filepath.clear();
@@ -64,7 +64,7 @@ static void C_Decoder_Destruct(C_Decoder* self) {  // Destructor
 
 static PyObject* C_Decoder_Str(C_Decoder* self) {  // The __str__ (print) operator.
     // char *desc = ;
-    return PyUnicode_FromString(self->_c_ref->get_filepath().c_str());  // Convert the string to unicode wide char.
+    return PyUnicode_FromString(self->_c_ref->get_input_file().c_str());  // Convert the string to unicode wide char.
 }
 
 static PyObject* C_Decoder_Repr(C_Decoder* self) {  // The __repr__ operator.
@@ -76,11 +76,11 @@ static PyObject* C_Decoder_Repr(C_Decoder* self) {  // The __repr__ operator.
 * Additional methods of the classes.
 *****************************************************************************/
 
-PyDoc_STRVAR(Decoder_set_filepath_doc, "set_filepath(filepath)\
+PyDoc_STRVAR(Decoder_set_input_file_doc, "set_input_file(filepath)\
 \
 Set Decoder path function");
 
-PyObject *Decoder_set_filepath(C_Decoder *self, PyObject *args) {
+PyObject *Decoder_set_input_file(C_Decoder *self, PyObject *args) {
     /* Shared references that do not need Py_DECREF before returning. */
 
     char* filepath;
@@ -98,7 +98,7 @@ PyObject *Decoder_set_filepath(C_Decoder *self, PyObject *args) {
     std::string _filepath = filepath;
     if (!_filepath.empty()) {
         PyObject* ret = PyUnicode_FromString(
-            self->_c_ref->set_filepath(_filepath).c_str()
+            self->_c_ref->set_input_file(_filepath).c_str()
         );
 
         _filepath.clear();
@@ -108,23 +108,23 @@ PyObject *Decoder_set_filepath(C_Decoder *self, PyObject *args) {
     Py_RETURN_NONE;
 }
 
-PyDoc_STRVAR(Decoder_get_filepath_doc, "get_filepath()\
+PyDoc_STRVAR(Decoder_get_input_file_doc, "get_input_file()\
 \
 Get Decoder path function");
 
-PyObject *Decoder_get_filepath(C_Decoder *self) {
+PyObject *Decoder_get_input_file(C_Decoder *self) {
     PyObject* ret = PyUnicode_FromString(
-        self->_c_ref->get_filepath().c_str()
+        self->_c_ref->get_input_file().c_str()
     );
     return ret;
 }
 
-PyDoc_STRVAR(Decoder_get_file_info_doc, "get_file_info()\
+PyDoc_STRVAR(Decoder_get_input_info_doc, "get_input_info()\
 \
 Get file info");
 
-PyObject *Decoder_get_file_info(C_Decoder *self) {
-    return self->_c_ref->get_file_info();
+PyObject *Decoder_get_input_info(C_Decoder *self) {
+    return self->_c_ref->get_input_info();
 }
 
 PyDoc_STRVAR(Decoder_extract_frame_doc, "extract_frame(number)\
@@ -177,9 +177,9 @@ PyObject *Decoder_close_stream(C_Decoder *self) {
 
 static PyMethodDef C_Decoder_MethodMembers[] =      // Register the member methods of Decoder.
 {  // This step add the methods to the C-API of the class.
-    { "set_filepath", (PyCFunction)Decoder_set_filepath, METH_VARARGS, Decoder_set_filepath_doc },
-    { "get_filepath", (PyCFunction)Decoder_get_filepath, METH_NOARGS, Decoder_get_filepath_doc },
-    { "get_file_info", (PyCFunction)Decoder_get_file_info, METH_NOARGS, Decoder_get_file_info_doc },
+    { "set_input_file", (PyCFunction)Decoder_set_input_file, METH_VARARGS, Decoder_set_input_file_doc },
+    { "get_input_file", (PyCFunction)Decoder_get_input_file, METH_NOARGS, Decoder_get_input_file_doc },
+    { "get_input_info", (PyCFunction)Decoder_get_input_info, METH_NOARGS, Decoder_get_input_info_doc },
     { "extract_frame", (PyCFunction)Decoder_extract_frame, METH_VARARGS, Decoder_extract_frame_doc },
     { "open_stream", (PyCFunction)Decoder_open_stream, METH_NOARGS, Decoder_open_stream_doc },
     { "close_stream", (PyCFunction)Decoder_close_stream, METH_NOARGS, Decoder_close_stream_doc },

@@ -19,4 +19,4 @@ cmake -B %BUILD_DIR% && cd %BUILD_DIR% && cmake --build . --target ALL_BUILD --c
 
 
 @REM TEST
-"C:/Program Files (x86)/Microsoft Visual Studio/Shared/Python39_64/python.exe" e:/cpp/FFMPy-cmake/test.py
+"C:/Program Files (x86)/Microsoft Visual Studio/Shared/Python39_64/python.exe" %~dp0/test/test.py

@@ -7,7 +7,7 @@ Decoder::Decoder() {
 
 Decoder::Decoder(std::string filepath) {
     this->debug(false);
-    this->set_filepath(filepath);
+    this->set_input_file(filepath);
 };
 
 Decoder::~Decoder() {
@@ -42,20 +42,21 @@ void Decoder::_reset() {
     this->_is_streaming = false;
 }
 
-std::string Decoder::set_filepath(std::string filepath) {
+std::string Decoder::set_input_file(std::string filepath) {
     this->_reset();
     this->filepath = filepath;
     this->open();
-    this->_get_file_info();
+    if (this->_is_open)
+        this->_get_input_info();
     this->close();
     return this->filepath;
 };
 
-std::string Decoder::get_filepath() {
+std::string Decoder::get_input_file() {
     return this->filepath;
 };
 
-PyObject* Decoder::get_file_info() {
+PyObject* Decoder::get_input_info() {
     auto res = PyDict_New();
     std::string key;
     PyObject* val = nullptr;
@@ -115,7 +116,7 @@ PyObject* Decoder::get_file_info() {
     return res;
 }
 
-void Decoder::_get_file_info() {
+void Decoder::_get_input_info() {
     int video_stream_index = -1;
 
     for (unsigned int i = 0; i < this->pFormatContext->nb_streams; i++) {
@@ -175,7 +176,7 @@ void Decoder::_get_file_info() {
 }
 
 int Decoder::open() {
-    this->_is_open = 0;
+    this->_is_open = false;
 
     if (this->filepath.empty()) {
         std::cerr << "[ERROR] Filepath is not set yet!\n";
@@ -197,7 +198,7 @@ int Decoder::open() {
         return this->_is_open;
     }
     
-    this->_is_open = 1;
+    this->_is_open = true;
     return this->_is_open;
 }
 
@@ -214,81 +215,82 @@ int Decoder::open_stream() {
     if (this->_debug) {
         std::cout << "Opening stream\n";
     }
-    this->_is_streaming = 0;
+    this->_is_streaming = false;
     
     this->open();
+    if (this->_is_open) {
+        const AVCodec *pCodec = NULL;
+        AVCodecParameters *pCodecParameters = NULL;
 
-    const AVCodec *pCodec = NULL;
-    AVCodecParameters *pCodecParameters = NULL;
+        this->pVideoStream = NULL;
+        this->video_stream_index = -1;
 
-    this->pVideoStream = NULL;
-    this->video_stream_index = -1;
+        for (unsigned int i = 0; i < this->pFormatContext->nb_streams; i++) {
+            AVCodecParameters *pLocalCodecParameters =  NULL;
+            pLocalCodecParameters = this->pFormatContext->streams[i]->codecpar;
 
-    for (unsigned int i = 0; i < this->pFormatContext->nb_streams; i++) {
-        AVCodecParameters *pLocalCodecParameters =  NULL;
-        pLocalCodecParameters = this->pFormatContext->streams[i]->codecpar;
+            const AVCodec *pLocalCodec = NULL;
 
-        const AVCodec *pLocalCodec = NULL;
+            pLocalCodec = avcodec_find_decoder(pLocalCodecParameters->codec_id);
 
-        pLocalCodec = avcodec_find_decoder(pLocalCodecParameters->codec_id);
-
-        if (pLocalCodec==NULL) {
-            std::cerr << "[ERROR] Unsupported codec!";
-            continue;
-        }
-        if (pLocalCodecParameters->codec_type == AVMEDIA_TYPE_VIDEO) {
-            if (video_stream_index == -1) {
-                video_stream_index = i;
-                pCodec = pLocalCodec;
-                pCodecParameters = pLocalCodecParameters;
-                this->pVideoStream = this->pFormatContext->streams[video_stream_index];
+            if (pLocalCodec==NULL) {
+                std::cerr << "[ERROR] Unsupported codec!";
+                continue;
             }
-        } else if (pLocalCodecParameters->codec_type == AVMEDIA_TYPE_AUDIO) {
+            if (pLocalCodecParameters->codec_type == AVMEDIA_TYPE_VIDEO) {
+                if (video_stream_index == -1) {
+                    video_stream_index = i;
+                    pCodec = pLocalCodec;
+                    pCodecParameters = pLocalCodecParameters;
+                    this->pVideoStream = this->pFormatContext->streams[video_stream_index];
+                }
+            } else if (pLocalCodecParameters->codec_type == AVMEDIA_TYPE_AUDIO) {
 
+            }
         }
-    }
 
-    if (video_stream_index == -1) {
-        std::cerr << "[ERROR] File does not contain a video stream!";
-        return this->_is_streaming;
-    }
-    
-    this->pCodecContext = avcodec_alloc_context3(pCodec);
-    if (!this->pCodecContext) {
-        std::cerr << "[ERROR] Failed to allocated memory for AVCodecContext";
-        return this->_is_streaming;
-    }
+        if (video_stream_index == -1) {
+            std::cerr << "[ERROR] File does not contain a video stream!";
+            return this->_is_streaming;
+        }
+        
+        this->pCodecContext = avcodec_alloc_context3(pCodec);
+        if (!this->pCodecContext) {
+            std::cerr << "[ERROR] Failed to allocated memory for AVCodecContext";
+            return this->_is_streaming;
+        }
 
-    if (avcodec_parameters_to_context(this->pCodecContext, pCodecParameters) < 0) {
-        std::cerr << "[ERROR] Failed to copy codec params to codec context";
-        return this->_is_streaming;
+        if (avcodec_parameters_to_context(this->pCodecContext, pCodecParameters) < 0) {
+            std::cerr << "[ERROR] Failed to copy codec params to codec context";
+            return this->_is_streaming;
+        }
+
+        if (avcodec_open2(this->pCodecContext, pCodec, NULL) < 0) {
+            std::cerr << "[ERROR] Failed to open codec through avcodec_open2";
+            return this->_is_streaming;
+        }
+
+        this->pFrame = av_frame_alloc();
+        if (!this->pFrame) {
+            std::cerr << "[ERROR] Failed to allocate memory for AVFrame";
+            return this->_is_streaming;
+        }
+
+        this->pPacket = av_packet_alloc();
+        if (!this->pPacket) {
+            std::cerr << "[ERROR] Failed to allocate memory for AVPacket";
+            return this->_is_streaming;
+        }
+
+        this->swsCtx = sws_getContext(
+                this->pCodecContext->width, this->pCodecContext->height, this->pCodecContext->pix_fmt, 
+                this->pCodecContext->width, this->pCodecContext->height, AV_PIX_FMT_RGBA, 
+                SWS_BICUBIC, NULL, NULL, NULL
+            );
+
+        avcodec_flush_buffers(this->pCodecContext);
+        this->_is_streaming = true;
     }
-
-    if (avcodec_open2(this->pCodecContext, pCodec, NULL) < 0) {
-        std::cerr << "[ERROR] Failed to open codec through avcodec_open2";
-        return this->_is_streaming;
-    }
-
-    this->pFrame = av_frame_alloc();
-    if (!this->pFrame) {
-        std::cerr << "[ERROR] Failed to allocate memory for AVFrame";
-        return this->_is_streaming;
-    }
-
-    this->pPacket = av_packet_alloc();
-    if (!this->pPacket) {
-        std::cerr << "[ERROR] Failed to allocate memory for AVPacket";
-        return this->_is_streaming;
-    }
-
-    this->swsCtx = sws_getContext(
-            this->pCodecContext->width, this->pCodecContext->height, this->pCodecContext->pix_fmt, 
-            this->pCodecContext->width, this->pCodecContext->height, AV_PIX_FMT_RGBA, 
-            SWS_BICUBIC, NULL, NULL, NULL
-        );
-
-    avcodec_flush_buffers(this->pCodecContext);
-    this->_is_streaming = 1;
     return this->_is_streaming;
 }
 

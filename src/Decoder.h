@@ -9,9 +9,9 @@ class Decoder {
         Decoder(std::string);
         ~Decoder();
 
-        std::string set_filepath(std::string filepath);
-        std::string get_filepath();
-        PyObject* get_file_info();
+        std::string set_input_file(std::string filepath);
+        std::string get_input_file();
+        PyObject* get_input_info();
         PyObject* extract_frame(int64_t frame);
         bool debug(bool state);
         
@@ -48,5 +48,5 @@ class Decoder {
         void _reset();
         int open();
         int close();
-        void _get_file_info();
+        void _get_input_info();
 };
