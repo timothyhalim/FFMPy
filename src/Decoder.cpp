@@ -112,6 +112,10 @@ PyObject* Decoder::get_input_info() {
     val = Py_BuildValue("L", this->audio_bit_rate);
     PyDict_SetItemString(res, key.c_str(), val);
     Py_DECREF(val);
+    key.assign("audio_bit_per_sample");
+    val = Py_BuildValue("i", this->audio_bit_per_sample);
+    PyDict_SetItemString(res, key.c_str(), val);
+    Py_DECREF(val);
 
     return res;
 }
@@ -161,6 +165,7 @@ void Decoder::_get_input_info() {
             this->audio_sample_rate = pLocalCodecParameters->sample_rate;
             this->audio_codec = pLocalCodec->name;
             this->audio_bit_rate = pLocalCodecParameters->bit_rate;
+            this->audio_bit_per_sample = pLocalCodecParameters->bits_per_coded_sample;
             
             if (this->_debug) {
                 std::cout << "Audio Codec: " << this->audio_channels << " channels,"
@@ -224,6 +229,8 @@ int Decoder::open_stream() {
 
         this->pVideoStream = NULL;
         this->video_stream_index = -1;
+        this->pAudioStream = NULL;
+        this->audio_stream_index = -1;
 
         for (unsigned int i = 0; i < this->pFormatContext->nb_streams; i++) {
             AVCodecParameters *pLocalCodecParameters =  NULL;
@@ -238,19 +245,22 @@ int Decoder::open_stream() {
                 continue;
             }
             if (pLocalCodecParameters->codec_type == AVMEDIA_TYPE_VIDEO) {
-                if (video_stream_index == -1) {
-                    video_stream_index = i;
+                if (this->video_stream_index == -1) {
+                    this->video_stream_index = i;
                     pCodec = pLocalCodec;
                     pCodecParameters = pLocalCodecParameters;
-                    this->pVideoStream = this->pFormatContext->streams[video_stream_index];
+                    this->pVideoStream = this->pFormatContext->streams[this->video_stream_index];
                 }
             } else if (pLocalCodecParameters->codec_type == AVMEDIA_TYPE_AUDIO) {
-
+                if (this->audio_stream_index == -1) {
+                    this->audio_stream_index = i;
+                    this->pAudioStream = this->pFormatContext->streams[this->audio_stream_index];
+                }
             }
         }
 
-        if (video_stream_index == -1) {
-            std::cerr << "[ERROR] File does not contain a video stream!";
+        if ((this->video_stream_index == -1) && (this->audio_stream_index == -1)) {
+            std::cerr << "[ERROR] File does not contain a video or audio stream!";
             return this->_is_streaming;
         }
         
@@ -288,7 +298,10 @@ int Decoder::open_stream() {
                 SWS_BICUBIC, NULL, NULL, NULL
             );
 
+        this->swrCtx = swr_alloc();
+        
         avcodec_flush_buffers(this->pCodecContext);
+
         this->_is_streaming = true;
     }
     return this->_is_streaming;
@@ -309,6 +322,31 @@ int Decoder::close_stream() {
     return true;
 }
 
+
+PyObject* Decoder::extract_image(AVFrame *frame) {
+    std::vector<uint8_t> rgb_arr;
+    
+    uint8_t* rgb_data[4];  
+    int rgb_linesize[4];
+    
+    av_image_alloc(rgb_data, rgb_linesize, frame->width, frame->height, AV_PIX_FMT_RGBA, 32); 
+    sws_scale(this->swsCtx, frame->data, frame->linesize, 0, frame->height, rgb_data, rgb_linesize);
+
+    int rgb_size = frame->height * rgb_linesize[0];
+    std::vector<uint8_t> rgb_vector(rgb_size);
+    memcpy(rgb_vector.data(), rgb_data[0], rgb_size);
+    for(int y = 0; y < frame->height; ++y) {
+        rgb_arr.insert(
+            rgb_arr.end(), 
+            rgb_vector.begin() + y * rgb_linesize[0],
+            rgb_vector.begin() + y * rgb_linesize[0] + 4 * frame->width
+        );
+    }
+
+    PyObject* arr = vec_to_array(rgb_arr);
+    return arr;
+}
+
 PyObject* Decoder::extract_frame(int64_t frame) {
     if (this->_debug) {
         std::cout << "Extracting frame " << frame <<"\n";
@@ -320,7 +358,7 @@ PyObject* Decoder::extract_frame(int64_t frame) {
         frame = 0;
     }
 
-    std::vector<uint8_t> rgb_arr;
+    PyObject* rgba_data = NULL;
     
     bool extract_one_frame = false;
     if (!this->_is_streaming){
@@ -331,73 +369,62 @@ PyObject* Decoder::extract_frame(int64_t frame) {
     if (this->_is_streaming) {
         // SEEK TO FRAME
         
-        auto time_base = this->pVideoStream->time_base;
-        auto frame_base = this->pVideoStream->avg_frame_rate;
-        auto seekTimeStamp = this->pVideoStream->start_time 
-                            + av_rescale(
-                                av_rescale(frame, time_base.den, time_base.num), 
-                                frame_base.den, frame_base.num
-                            );
-        if (this->_debug) {
-            std::cout << "Seeking to frame " << frame << ", timestamp " << seekTimeStamp << "\n";
-        }
-        if (av_seek_frame(this->pFormatContext, video_stream_index, seekTimeStamp, AVSEEK_FLAG_BACKWARD) < 0) {
-            std::cerr << "AV seek frame fail!" << "\n";
-            av_seek_frame(this->pFormatContext, -1, 0, AVSEEK_FLAG_BACKWARD);
-        }
+        if (this->pVideoStream) {
+            auto time_base = this->pVideoStream->time_base;
+            auto frame_base = this->pVideoStream->avg_frame_rate;
+            auto seekTimeStamp = this->pVideoStream->start_time 
+                                + av_rescale(
+                                    av_rescale(frame, time_base.den, time_base.num), 
+                                    frame_base.den, frame_base.num
+                                );
+            if (this->_debug) {
+                std::cout << "Seeking to frame " << frame << ", timestamp " << seekTimeStamp << "\n";
+            }
+            
+            if (av_seek_frame(this->pFormatContext, this->video_stream_index, seekTimeStamp, AVSEEK_FLAG_BACKWARD) < 0) {
+                std::cerr << "Video seek frame fail!" << "\n";
+                av_seek_frame(this->pFormatContext, -1, 0, AVSEEK_FLAG_BACKWARD);
+            }
 
-        int response = 0;
-        bool found = false;
+            int response = 0;
+            bool found = false;
 
-        while (av_read_frame(this->pFormatContext, this->pPacket) >= 0) {
-            // if it's the video stream
-            if (this->pPacket->stream_index == video_stream_index) {
-                if (this->_debug) {
-                    std::cout << "AVPacket->pts " << this->pPacket->pts << "\n";
-                }
-                response = avcodec_send_packet(this->pCodecContext, this->pPacket);
-                if (response < 0) {
-                    std::cerr << "Error while sending a packet to the decoder";
-                    break;
-                }
-
-                while (response >= 0){
-                    response = avcodec_receive_frame(this->pCodecContext, this->pFrame);
-                    if (response == AVERROR(EAGAIN) || response == AVERROR_EOF) {
-                        break;
-                    } else if (response < 0) {
-                        std::cerr << "Error while receiving a frame from the decoder";
+            while (av_read_frame(this->pFormatContext, this->pPacket) >= 0) {
+                // if it's the video stream
+                if (this->pPacket->stream_index == this->video_stream_index) {
+                    if (this->_debug) {
+                        std::cout << "AVPacket->pts " << this->pPacket->pts << "\n";
+                    }
+                    response = avcodec_send_packet(this->pCodecContext, this->pPacket);
+                    if (response < 0) {
+                        std::cerr << "Error while sending a packet to the decoder";
                         break;
                     }
 
-                    if (response >= 0) {
-                        if (this->pFrame->pts < seekTimeStamp) {
+                    while (response >= 0){
+                        response = avcodec_receive_frame(this->pCodecContext, this->pFrame);
+                        if (response == AVERROR(EAGAIN) || response == AVERROR_EOF) {
+                            break;
+                        } else if (response < 0) {
+                            std::cerr << "Error while receiving a frame from the decoder";
                             break;
                         }
 
-                        uint8_t* rgb_data[4];  int rgb_linesize[4];
-                        av_image_alloc(rgb_data, rgb_linesize, this->pFrame->width, this->pFrame->height, AV_PIX_FMT_RGBA, 32); 
-                        sws_scale(this->swsCtx, this->pFrame->data, this->pFrame->linesize, 0, this->pFrame->height, rgb_data, rgb_linesize);
-
-                        int rgb_size = pFrame->height * rgb_linesize[0];
-                        std::vector<uint8_t> rgb_vector(rgb_size);
-                        memcpy(rgb_vector.data(), rgb_data[0], rgb_size);
-                        for(int y = 0; y < pFrame->height; ++y) {
-                            rgb_arr.insert(
-                                rgb_arr.end(), 
-                                rgb_vector.begin() + y * rgb_linesize[0],
-                                rgb_vector.begin() + y * rgb_linesize[0] + 4 * pFrame->width
-                            );
+                        if (response >= 0) {
+                            if (this->pFrame->pts < seekTimeStamp) {
+                                break;
+                            }
+                            rgba_data = this->extract_image(this->pFrame);
+                            found = true;
+                            break;
                         }
-                        found = true;
-                        break;
+                        av_frame_unref(this->pFrame);
                     }
-                    av_frame_unref(this->pFrame);
                 }
-            }
-            av_packet_unref(this->pPacket);
-            if (found){
-                break;
+                av_packet_unref(this->pPacket);
+                if (found){
+                    break;
+                }
             }
         }
     }
@@ -405,6 +432,5 @@ PyObject* Decoder::extract_frame(int64_t frame) {
         this->close_stream();
     }
 
-    PyObject* arr = vec_to_array(rgb_arr);
-    return arr;
+    return rgba_data;
 }

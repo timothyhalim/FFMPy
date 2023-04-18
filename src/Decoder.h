@@ -1,7 +1,8 @@
-#pragma once
+#ifndef FFMPy_Decoder
+#define FFMPy_Decoder
+
 #include "FFMPy.h"
 #include "Utils.h"
-
 
 class Decoder {
     public:
@@ -13,6 +14,7 @@ class Decoder {
         std::string get_input_file();
         PyObject* get_input_info();
         PyObject* extract_frame(int64_t frame);
+        PyObject* extract_image(AVFrame *frame);
         bool debug(bool state);
         
         int open_stream();
@@ -25,12 +27,15 @@ class Decoder {
         std::string filepath;
 
         AVFormatContext* pFormatContext;
-        AVStream* pVideoStream;
-        int video_stream_index;
-        AVCodecContext *pCodecContext;
         AVFrame *pFrame;
         AVPacket *pPacket;
+        AVCodecContext *pCodecContext;
+        AVStream* pVideoStream;
+        int video_stream_index;
         SwsContext *swsCtx;
+        AVStream* pAudioStream;
+        int audio_stream_index;
+        SwrContext *swrCtx;
 
         int video_width, video_height;                  // Width, height of the video.
         std::string video_codec;             // Show the name of the current codec.
@@ -44,9 +49,12 @@ class Decoder {
         int audio_channels;                 // Number of audio channels.
         int audio_sample_rate;              // Audio sample rate.
         int64_t audio_bit_rate;                   // File bitrate.
-        
+        int audio_bit_per_sample;              // Audio sample rate.
+
         void _reset();
         int open();
         int close();
         void _get_input_info();
 };
+
+#endif
